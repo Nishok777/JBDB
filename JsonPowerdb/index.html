@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Student Enrollment Form</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script src="http://login2explore.com/jpdb/resources/js/0.0.3/jpdb-commons.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>Student Enrollment Form</h2>
+        <form id="studentForm">
+            <div class="form-group">
+                <label for="rollNo">Roll No:</label>
+                <input type="text" class="form-control" id="rollNo" placeholder="Enter Roll No" onchange="en()" required>
+            </div>
+            <div class="form-group">
+                <label for="fullName">Full Name:</label>
+                <input type="text" class="form-control" id="fullName" placeholder="Enter Full Name" disabled>
+            </div>
+            <div class="form-group">
+                <label for="class">Class:</label>
+                <input type="text" class="form-control" id="class" placeholder="Enter Class" disabled>
+            </div>
+            <div class="form-group">
+                <label for="birthDate">Birth Date:</label>
+                <input type="date" class="form-control" id="birthDate" disabled>
+            </div>
+            <div class="form-group">
+                <label for="address">Address:</label>
+                <input type="text" class="form-control" id="address" placeholder="Enter Address" disabled>
+            </div>
+            <div class="form-group">
+                <label for="enrollmentDate">Enrollment Date:</label>
+                <input type="date" class="form-control" id="enrollmentDate" disabled>
+            </div>
+            <button type="button" class="btn btn-primary" id="saveBtn" disabled onclick="saveStudent()">Save</button>
+            <button type="button" class="btn btn-warning" id="updateBtn" disabled onclick="updateStudent()">Update</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+        </form>
+    </div>
+
+    <script>
+        const connToken = "90934508|-31949225781400543|90962885";
+        const dbName = "SCHOOL-DB";
+        const relName = "STUDENT-TABLE";
+
+        // On page load, focus on Roll No and disable all fields except Roll No
+        $(document).ready(function() {
+            $("#rollNo").focus();
+        });
+
+        // Reset the form to initial state
+        function saverec(jsonObj)
+        {
+            var dat=JSON.parse(jsonObj.data);
+            localStorage.setItem("recno",dat.rec_no);
+        }
+        function en()
+        {
+            var rollNo = $("#rollNo").val();
+            var getReqStr = createGET_BY_KEYRequest(connToken, dbName, relName, JSON.stringify({ rollNo: rollNo }));
+            jQuery.ajaxSetup({async: false});
+            var resultObj = executeCommandAtGivenBaseUrl(getReqStr, "http://api.login2explore.com:5577", "/api/irl");
+            if (resultObj.status === 200) {
+                saverec(resultObj);
+                fillForm(resultObj.data); // Roll No exists, display the data and enable Update button
+                $("#updateBtn").prop("disabled", false);
+                $("#saveBtn").prop("disabled", true);
+                $("#rollNo").prop("disabled", true);
+            } else {
+                enableForm(); // Roll No does not exist, enable form for new entry
+                $("#saveBtn").prop("disabled", false);
+                $("#updateBtn").prop("disabled", true);
+            }
+        }
+        function resetForm() {
+            $("#rollNo").val("").prop("disabled", false).focus();
+            $("#fullName").val("").prop("disabled", true);
+            $("#class").val("").prop("disabled", true);
+            $("#birthDate").val("").prop("disabled", true);
+            $("#address").val("").prop("disabled", true);
+            $("#enrollmentDate").val("").prop("disabled", true);
+            $("#saveBtn").prop("disabled", true);
+            $("#updateBtn").prop("disabled", true);
+        }
+
+        // Fetch student data if Roll No exists in the database
+        function fetchStudentData() {
+            var rollNo = $("#rollNo").val();
+            if (rollNo === "") {
+                alert("Roll No is required.");
+                return;
+            }
+            
+            var getReqStr = createGET_BY_KEYRequest(connToken, dbName, relName, JSON.stringify({ rollNo: rollNo }));
+            jQuery.ajaxSetup({async: false});
+            var resultObj = executeCommandAtGivenBaseUrl(getReqStr, "http://api.login2explore.com:5577", "/api/irl");
+
+            if (resultObj.status === 200) {
+                fillForm(resultObj.data); // Roll No exists, display the data and enable Update button
+                $("#updateBtn").prop("disabled", false);
+                $("#saveBtn").prop("disabled", true);
+                $("#rollNo").prop("disabled", true);
+            } else {
+                enableForm(); // Roll No does not exist, enable form for new entry
+                $("#saveBtn").prop("disabled", false);
+                $("#updateBtn").prop("disabled", true);
+            }
+        }
+
+        // Enable form fields
+        function enableForm() {
+            $("#fullName, #class, #birthDate, #address, #enrollmentDate").prop("disabled", false);
+            $("#fullName").focus();
+        }
+
+        // Fill form with data when Roll No exists
+        function fillForm(data) {
+            var student = JSON.parse(data).record;
+            $("#fullName").val(student.fullName);
+            $("#class").val(student.class);
+            $("#birthDate").val(student.birthDate);
+            $("#address").val(student.address);
+            $("#enrollmentDate").val(student.enrollmentDate);
+            enableForm();
+        }
+
+        // Validate and get form data
+        function validateAndGetFormData() {
+            var rollNo = $("#rollNo").val();
+            var fullName = $("#fullName").val();
+            var classValue = $("#class").val();
+            var birthDate = $("#birthDate").val();
+            var address = $("#address").val();
+            var enrollmentDate = $("#enrollmentDate").val();
+
+            if (fullName === "" || classValue === "" || birthDate === "" || address === "" || enrollmentDate === "") {
+                alert("All fields are required.");
+                return "";
+            }
+
+            return JSON.stringify({
+                rollNo: rollNo,
+                fullName: fullName,
+                class: classValue,
+                birthDate: birthDate,
+                address: address,
+                enrollmentDate: enrollmentDate
+            });
+        }
+
+        // Save new student data to the database
+        function saveStudent() {
+            var jsonStr = validateAndGetFormData();
+            if (jsonStr === "") return;
+
+            var putReqStr = createPUTRequest(connToken, jsonStr, dbName, relName);
+            jQuery.ajaxSetup({async: false});
+            var resultObj = executeCommandAtGivenBaseUrl(putReqStr, "http://api.login2explore.com:5577", "/api/iml");
+            
+            if (resultObj.status === 200) {
+                alert("Student data saved successfully.");
+                resetForm();
+            } else {
+                alert("Error saving data.");
+            }
+        }
+
+        // Update existing student data in the database
+        function updateStudent() {
+            var jsonStr = validateAndGetFormData();
+            if (jsonStr === "") return;
+
+            var updateReqStr = createUPDATERecordRequest(connToken, jsonStr, dbName, relName, localStorage.getItem("recno"));
+            jQuery.ajaxSetup({async: false});
+            var resultObj = executeCommandAtGivenBaseUrl(updateReqStr, "http://api.login2explore.com:5577", "/api/iml");
+            
+            if (resultObj.status === 200) {
+                alert("Student data updated successfully.");
+                resetForm();
+            } else {
+                alert("Error updating data.");
+            }
+        }
+
+        // When Roll No input field changes, fetch student data
+        $("#rollNo").on("change", function() {
+            fetchStudentData();
+        });
+    </script>
+</body>
+</html>
